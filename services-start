@@ -1,0 +1,3 @@
+#!/bin/sh
+
+sh /jffs/scripts/wg_vpn_failover.sh
