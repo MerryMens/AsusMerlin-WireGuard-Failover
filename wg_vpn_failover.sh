@@ -1,25 +1,28 @@
 #!/bin/sh
 
-sleep 60
-
 #### Wait for NTP to sync ####
-ntpCheck="0"
-while [ "$(nvram get ntp_ready)" = "0" ] && [ "ntpCheck" -lt "300" ]
+ntpCheckCounter=1
+ntpReadyMaxCheck=10
+ntpCheckdDelay=30
+ntpReadyFlag=$(nvram get ntp_ready)
+
+while [ $ntpReadyFlag -eq 0 ]
 do
-  ntptimer="$((ntpCheck + 1))"
-  if [ "$ntpCheck" = "60" ]
+  #### Exit script if NTP sync fails ####
+  if [ $ntpCheckCounter -gt $ntpReadyMaxCheck ]
   then
-    logger -st "Wireguard VPN Failover - Waiting for NTP to sync"
+    logger -s Wireguard VPN Failover - NTP failed to sync time in $(($ntpCheckdDelay*$ntpReadyMaxCheck)) secs, fix the issue and reboot the router
+    exit
+  else
+    logger -s Wireguard VPN Failover NTP ready Check $ntpCheckCounter: Waiting for NTP to sync, checking again in $ntpCheckdDelay secs
+    sleep $ntpCheckdDelay
+    ntpReadyFlag=$(nvram get ntp_ready)
+    ntpCheckCounter=$((ntpCheckCounter+1))
   fi
-  sleep 5
 done
 
-#### Don't execute script if NTP sync fails ####
-if [ "$ntpCheck" -ge "300" ]
-then
-  logger -st "Wireguard VPN Failover failed to start - NTP sync failed after 5 mins"
-  exit
-fi
+#### Continue the script after NTP sync is complete ####
+logger -s "NTP sync is complete. Executing Wireguard Client VPN failover script..."
 
 #### Set default parameters ####
 wgFailoverConfigFilePath="/jffs/configs/wg_vpn_failover_config"
